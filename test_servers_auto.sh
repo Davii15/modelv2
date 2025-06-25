@@ -18,7 +18,7 @@ LOGDIR="./logs"
 mkdir -p $LOGDIR
 
 # Test OWASP server
-echo "[*] Attacking OWASP server..."
+echo "[*] Attacking server..."
 python3 goldeneye.py $OWASP_SERVER -w $WORKERS -s $SOCKETS -m $METHOD $DEBUG $NOSSL > $LOGDIR/owasp.log 2>&1 &
 PID1=$!
 
@@ -26,14 +26,14 @@ PID1=$!
 sleep 5
 
 # Test Metasploit server
-echo "[*] Attacking Metasploit server..."
+echo "[*] Attacking  server..."
 python3 goldeneye.py $METASPLOIT_SERVER -w $WORKERS -s $SOCKETS -m $METHOD $DEBUG $NOSSL > $LOGDIR/metasploit.log 2>&1 &
 PID2=$!
 
 sleep 5
 
 # Test Sample server
-echo "[*] Attacking Sample server..."
+echo "[*] Attacking  server..."
 python3 goldeneye.py $SAMPLE_SERVER -w $WORKERS -s $SOCKETS -m $METHOD $DEBUG $NOSSL > $LOGDIR/sample.log 2>&1 &
 PID3=$!
 
